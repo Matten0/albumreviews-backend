@@ -9,10 +9,11 @@ app.use(express.json())
 app.use(cors())
 
 const User = require("./models/user")
+const Review = require("./models/review")
 const auth = require("./auth")
 
 
-app.post("/register", (request, response) => {
+app.post("/api/users/register", (request, response) => {
     const user = request.body
 
     bcrypt.hash(user.password, 10)
@@ -41,37 +42,34 @@ app.post("/register", (request, response) => {
         })
 })
 
-app.post("/login", (request, response) => {
+app.post("/api/users/login", (request, response, next) => {
     const user = request.body
     User.findOne({name: user.name})
         .then((foundUser) => {
             bcrypt.compare(user.password, foundUser.password)
                 .then((passwordCompare) => {
-
                     if (!passwordCompare) {
                         return response.status(400).send({
-                            message: "Wrong password",
+                            message: "Incorrect password",
                             error
                         })
                     }
-
                     const token = jwt.sign(
                         {
-                            id: foundUser._id,
                             name: foundUser.name
                         },
-                        "RANDOM-TOKEN"
+                        "RANDOM-TOKEN",
+                        { "expiresIn": "2h" }
                     )
-
                     response.json({
                         message: "Successful login",
                         username: foundUser.name,
-                        token
+                        token: token
                     })
                 })
-                .catch((error) => {
+                .catch(error => {
                     response.status(400).send({
-                        message: "Wrong password",
+                        message: "Incorrect password",
                         error
                     })
                 })
@@ -84,9 +82,113 @@ app.post("/login", (request, response) => {
         })
 })
 
-app.get("/authtest", auth, (request, response) => {
-    response.json({message: "Hello :)"})
+app.get("/api/users", (request, response, next) => {
+    User.find({})
+        .then(users => {
+            var usernames = users.map(u => u.name)
+            response.json(usernames)
+        })
+        .catch(error => next(error))
 })
+
+app.get("/api/reviews", (request, response, next) => {
+    const artistSearch = request.query.artist?.toLowerCase() || ''
+    const albumSearch = request.query.album?.toLowerCase() || ''
+    const username = request.query.user
+
+    Review.find({})
+        .then(reviews => {
+            var filtered = reviews.filter(r => r.artist.toLowerCase().includes(artistSearch) && r.album.toLowerCase().includes(albumSearch))
+            if (username)
+                filtered = filtered.filter(r => r.username === username)
+            response.json(filtered)
+        })
+        .catch(error => next(error))
+})
+
+app.post("/api/reviews", auth, (request, response, next) => {
+    const body = request.body
+    const username = request.user.name
+
+    if (!body.artist || !body.album || !body.text || (!body.score & body.score!=0) || !username) {
+        return response.status(400).json({ 
+            error: 'Missing information' 
+        })
+    }
+
+    const newReview = new Review({
+        artist: body.artist,
+        album: body.album,
+        text: body.text,
+        score: body.score,
+        username: username
+    })
+
+    newReview.save()
+        .then(savedReview => {
+            console.log("Review saved")
+            response.json(savedReview)
+        })
+        .catch(error => next(error))
+})
+
+app.get('/api/reviews/:id', (request, response, next) => {
+    Review.findById(request.params.id)
+        .then(review => {
+            if (review) {
+                response.json(review)
+            } else {
+                response.status(404).end()
+            }
+        })
+        .catch(error => next(error))
+})
+
+app.delete('/api/reviews/:id', auth, (request, response, next) => {
+    Review.findById(request.params.id)
+        .then(review => {
+            if (!(review.username === request.user.name)) {
+                return response.status(400).json({
+                    error: 'Incorrect username'
+                })
+            } else {
+                Review.deleteOne(review)
+                    .then(result => {
+                        response.status(204).end()
+                    })
+                    .catch(error => next(error))
+            }
+        })
+        .catch(error => next(error))
+})
+
+app.post('/api/reviews/:id', auth, (request, response, next) => {
+    Review.findById(request.params.id)
+        .then(review => {
+            if (!(review.username === request.user.name)) {
+                return response.status(400).json({
+                    error: 'Incorrect username'
+                })
+            } else {
+                return response.status(200).json({
+                    message: 'Correct username'
+                })
+            }
+        })
+        .catch(error => next(error))
+})
+
+const errorHandler = (error, request, response, next) => {
+  console.error(error.message)
+
+  if (error.name === 'CastError') {
+    return response.status(400).send({ error: 'malformatted id' })
+  }
+
+  next(error)
+}
+
+app.use(errorHandler)
 
 const PORT = 3001
 app.listen(PORT, () => {

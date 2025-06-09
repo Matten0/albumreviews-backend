@@ -7,6 +7,7 @@ const app = express()
 
 app.use(express.json())
 app.use(cors())
+app.use(express.static('dist'))
 
 const User = require("./models/user")
 const Review = require("./models/review")

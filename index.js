@@ -59,7 +59,7 @@ app.post("/api/users/login", (request, response, next) => {
                         {
                             name: foundUser.name
                         },
-                        "RANDOM-TOKEN",
+                        process.env.TOKEN_SECRET,
                         { "expiresIn": "2h" }
                     )
                     response.json({
@@ -68,12 +68,7 @@ app.post("/api/users/login", (request, response, next) => {
                         token: token
                     })
                 })
-                .catch(error => {
-                    response.status(400).send({
-                        message: "Incorrect password",
-                        error
-                    })
-                })
+                .catch(error => next(error))
         })
         .catch((error) => {
             response.status(404).send({
@@ -191,7 +186,7 @@ const errorHandler = (error, request, response, next) => {
 
 app.use(errorHandler)
 
-const PORT = 3001
+const PORT = process.env.PORT
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`)
 })

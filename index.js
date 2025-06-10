@@ -158,22 +158,6 @@ app.delete('/api/reviews/:id', auth, (request, response, next) => {
         .catch(error => next(error))
 })
 
-app.post('/api/reviews/:id', auth, (request, response, next) => {
-    Review.findById(request.params.id)
-        .then(review => {
-            if (!(review.username === request.user.name)) {
-                return response.status(400).json({
-                    error: 'Incorrect username'
-                })
-            } else {
-                return response.status(200).json({
-                    message: 'Correct username'
-                })
-            }
-        })
-        .catch(error => next(error))
-})
-
 const errorHandler = (error, request, response, next) => {
   console.error(error.message)
 

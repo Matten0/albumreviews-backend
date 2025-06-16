@@ -68,7 +68,12 @@ app.post("/api/users/login", (request, response, next) => {
                         token: token
                     })
                 })
-                .catch(error => next(error))
+                .catch((error) => {
+                    response.status(404).send({
+                        message: "Incorrect password",
+                        error
+                    })
+                })
         })
         .catch((error) => {
             response.status(404).send({
